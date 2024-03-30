@@ -2714,7 +2714,7 @@ class Mesh2TessGroup:
 
     def GetCommands(self):
         """Tuple of Commands"""
-        return ("Mesh2TessCommand", "RecombineCommand")
+        return ("Mesh2TessCommand", "Mesh2GDMLmeshCommand","RecombineCommand")
 
     def GetResources(self):
         """Set icon, menu and tooltip."""
@@ -2754,7 +2754,36 @@ class Mesh2TessFeature:
                 "GDML_TessGroup", "Mesh 2 Tess"
             ),
             "Mesh2Tess": QtCore.QT_TRANSLATE_NOOP(
-                "GDML_TessyGroup", "Create GDML Tessellate from FC Mesh"
+                "GDML_TessGroup", "Create GDML Tessellate from FC Mesh"
+            ),
+        }
+
+def createGDMLmesh(parent, obj):
+    print(f"Create GDML Mesh from FC Mesh")
+    print(f"Parent {parent}  Object {obj}")
+    print(dir(obj.Mesh))
+
+class Mesh2GDMLmeshFeature:
+    def Activated(self):
+        for obj in FreeCADGui.Selection.getSelection():
+            if obj.TypeId == "Mesh::Feature":
+                parent = obj.getParent()
+                createGDMLmesh(parent, obj)
+
+    def IsActive(self):
+        if FreeCAD.ActiveDocument is None:
+            return False
+        else:
+            return True
+
+    def GetResources(self):
+        return {
+            "Pixmap": "GDML_Mesh2GDMLmesh",
+            "MenuText": QtCore.QT_TRANSLATE_NOOP(
+                "GDML_TessGroup", "Mesh 2 GDML Mesh"
+            ),
+            "Mesh2GDMLmesh": QtCore.QT_TRANSLATE_NOOP(
+                "GDML_TessGroup", "Create GDML Tessellate from FC Mesh"
             ),
         }
 
@@ -3322,6 +3351,7 @@ FreeCADGui.addCommand("DecimateCommand", DecimateFeature())
 FreeCADGui.addCommand("Mesh2TessGroupCommand", Mesh2TessGroup())
 #FreeCADGui.addCommand("RecombineCommand", RecombineFeature())
 FreeCADGui.addCommand("Mesh2TessCommand", Mesh2TessFeature())
+FreeCADGui.addCommand("Mesh2GDMLmeshCommand", Mesh2GDMLmeshFeature())
 FreeCADGui.addCommand("Tess2MeshCommand", Tess2MeshFeature())
 FreeCADGui.addCommand("TetrahedronCommand", TetrahedronFeature())
 FreeCADGui.addCommand("SetScaleCommand", SetScaleFeature())
