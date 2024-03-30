@@ -126,7 +126,7 @@ class Headings(QtGui.QScrollArea):
         self.setGeometry(30, 30, 800, 250)
         # Scroll Area Properties
         self.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
-        self.setVerticalScrollBarPolicy(QtGui.QSizePolicy.setHorizontalPolicy.Fixed)
+        #self.setVerticalScrollBarPolicy(QtGui.QSizePolicy.setHorizontalPolicy.Fixed)
         self.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
         #self.setWidgetResizable(True)
         self.setWidgetResizable(False)
@@ -373,7 +373,7 @@ def processOBJ(doc, filename):
     #    FreeCADGui.Selection.addSelection(obj)
     sel = FreeCADGui.Selection.getSelection()
     print(f"Selection {sel}")
-    dialog = Mesh2TessDialog(sel, doc)
+    dialog = Mesh2GDMLMesh(sel, doc)
     dialog.exec_()
     FreeCADGui.setActiveDocument(doc)
     FreeCAD.ActiveDocument.recompute()

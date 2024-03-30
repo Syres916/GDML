@@ -4262,6 +4262,88 @@ class GDMLGmshTessellated(GDMLsolid):
         fp.Placement = currPlacement
 
 
+class GDMLMesh(GDMLsolid):
+    def __init__(
+        self, obj, FCmesh, lunit, material, colour=None
+    ):
+        super().__init__(obj)
+        # ########################################
+        # Pass in FC Mesh
+        # add lunit, material, colour
+        # ########################################
+        obj.mesh = FCmesh
+        obj.addProperty(
+            "App::PropertyInteger", "facets", "GDMLMesh", "Facets"
+        ).facets = FCmesh.CountFacets
+        obj.setEditorMode("facets", 1)
+        obj.addProperty(
+            "App::PropertyInteger", "vertex", "GDMLMesh", "Vertex"
+        ).vertex = FCmesh.CountPoints
+        obj.setEditorMode("vertex", 1)
+        obj.addProperty(
+            "App::PropertyEnumeration", "lunit", "GDMLMesh", "lunit"
+        )
+        setLengthQuantity(obj, lunit)
+        obj.addProperty(
+            "App::PropertyEnumeration",
+            "material",
+            "GDMLMesh",
+            "Material",
+        )
+        setMaterial(obj, material)
+        #self.updateParams(vertex, facets, flag)
+        if FreeCAD.GuiUp:
+            updateColour(obj, colour, material)
+            self.Type = "GDMLMesh"
+            self.colour = colour
+            obj.Proxy = self
+
+
+    def onChanged(self, fp, prop):
+        """Do something when a property has changed"""
+        # print(fp.Label+" State : "+str(fp.State)+" prop : "+prop)
+        if "Restore" in fp.State:
+            return
+
+        if prop in ["material"]:
+            if FreeCAD.GuiUp:
+                if hasattr(self, "colour"):
+                    if self.colour is None:
+                        fp.ViewObject.ShapeColor = colourMaterial(fp.material)
+                if fp.material == "G4_AIR":
+                    print("Set Transparency")
+                    fp.ViewObject.Transparency = 98
+
+        #if prop in ["editable"]:
+        #    if fp.editable is True:
+        #       self.addProperties()
+
+        if prop in ["scale"]:
+            self.createGeometry(fp)
+
+        if prop in ["lunit"]:
+            print(f"Need to change scale?")
+            self.createGeometry(fp)
+
+    def addProperties(self):
+        print("Add Properties")
+
+    # def execute(self, fp): in GDMLsolid
+
+    def createGeometry(self, fp):
+        if hasattr(fp, "scale"):
+            super().scale(fp)
+        fp.Shape = fp.mesh    
+
+    def createShape(self):
+        # mul = GDMLShared.getMult(fp)
+        mul = GDMLShared.getMult(self)
+        # print('Create Shape')
+        print(f"Create from Mesh")
+        return self.FCmesh
+
+
+
 class GDMLTessellated(GDMLsolid):
     def __init__(
         self, obj, vertex, facets, flag, lunit, material, colour=None
