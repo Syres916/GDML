@@ -4263,6 +4263,9 @@ class GDMLGmshTessellated(GDMLsolid):
 
 
 class GDMLMesh(GDMLsolid):
+    
+    import Part
+
     def __init__(
         self, obj, FCmesh, lunit, material, colour=None
     ):
@@ -4271,7 +4274,13 @@ class GDMLMesh(GDMLsolid):
         # Pass in FC Mesh
         # add lunit, material, colour
         # ########################################
-        obj.mesh = FCmesh
+        #self.FCmesh = FCmesh
+        meshShape = Part.Shape()
+        #meshShape.makeShapeFromMesh(FCmesh.Topology, 0.100000, True)
+        meshShape.makeShapeFromMesh(FCmesh.Topology, 1.0, True)
+        obj.addProperty(
+            "Part::PropertyPartShape", "meshShape", "GDMLMesh", "Mesh Shapes"
+        ).meshShape = meshShape
         obj.addProperty(
             "App::PropertyInteger", "facets", "GDMLMesh", "Facets"
         ).facets = FCmesh.CountFacets
@@ -4333,15 +4342,14 @@ class GDMLMesh(GDMLsolid):
     def createGeometry(self, fp):
         if hasattr(fp, "scale"):
             super().scale(fp)
-        fp.Shape = fp.mesh    
+        fp.Shape = fp.meshShape    
 
     def createShape(self):
         # mul = GDMLShared.getMult(fp)
         mul = GDMLShared.getMult(self)
         # print('Create Shape')
-        print(f"Create from Mesh")
-        return self.FCmesh
-
+        #print(f"Create from Mesh")
+        #return self.FCmesh
 
 
 class GDMLTessellated(GDMLsolid):

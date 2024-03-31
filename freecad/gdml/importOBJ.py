@@ -302,13 +302,13 @@ def getSelectedMaterial():
     return 0
 
 
-def getVert(s):
-    if '/' in s:
-        ret = int(s[:s.index('/')])-1
-        # print(ret)
-    else:
-        ret = int(s)-1
-    return(ret)
+#def getVert(s):
+#    if '/' in s:
+#        ret = int(s[:s.index('/')])-1
+#        # print(ret)
+#    else:
+#        ret = int(s)-1
+#    return(ret)
 
 
 def findNearestPart(obj):
@@ -324,7 +324,8 @@ def processOBJ(doc, filename):
     from datetime import datetime
 
     from .GDMLObjects import GDMLTessellated, ViewProvider
-    from .GDMLCommands import Mesh2TessDialog
+    #from .GDMLCommands import Mesh2TessDialog
+    from .GDMLCommands import createGDMLmesh
 
     print("Check Materials definitions exist")
     checkMaterialDefinitionsExist()
@@ -363,18 +364,19 @@ def processOBJ(doc, filename):
     Mesh.insert(filename)
     fcMeshTime = datetime.now()
     print(f"Time for FC mesh load of OBJ file {fcMeshTime - preTime}")
-    FreeCADGui.Selection.clearSelection()
+    #FreeCADGui.Selection.clearSelection()
     #for obj in doc.Objects:
     #    FreeCADGui.Selection.addSelection(obj)
     #FreeCADGui.Selection.addSelection(meshDoc.Objects[0])
-    for i in range(0, len(meshDoc.Objects)):
-        FreeCADGui.Selection.addSelection(meshDoc.Objects[i])
+    for i, obj in enumerate(meshDoc.Objects):
+        #FreeCADGui.Selection.addSelection(meshDoc.Objects[i])
+        createGDMLmesh(obj, "G4_A-150_TISSUE")
     #for obj in meshDoc.Objects:
     #    FreeCADGui.Selection.addSelection(obj)
-    sel = FreeCADGui.Selection.getSelection()
-    print(f"Selection {sel}")
-    dialog = Mesh2GDMLMesh(sel, doc)
-    dialog.exec_()
+    #sel = FreeCADGui.Selection.getSelection()
+    #print(f"Selection {sel}")
+    #dialog = Mesh2GDMLMesh(sel, doc)
+    #dialog.exec_()
     FreeCADGui.setActiveDocument(doc)
     FreeCAD.ActiveDocument.recompute()
     if FreeCAD.GuiUp:

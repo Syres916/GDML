@@ -133,6 +133,22 @@ def getSelectedPM():
 
     return objPart, material
 
+def getSelectedMaterial():
+    from .exportGDML import nameFromLabel
+    from .GDMLObjects import GDMLmaterial
+
+    material = 0
+    list = FreeCADGui.Selection.getSelection()
+    if list is not None:
+        for obj in list:
+            if hasattr(obj, "Proxy"):
+                if (
+                    isinstance(obj.Proxy, GDMLmaterial) is True
+                    and material == 0
+                ):
+                    material = nameFromLabel(obj.Label)
+    return material
+
 
 def getParent(obj):
     print(f" Get Parent {obj.Name}")
@@ -169,14 +185,14 @@ def createPartVol(obj, doc, selection=False):
     return None
 
 
-def insertPartVol(objPart, LVname, solidName):
+def insertPartVol(parent, LVname, solidName):
     from .importGDML import addSurfList
 
     doc = FreeCAD.ActiveDocument
-    if objPart is None:
+    if parent is None:
         vol = doc.addObject("App::Part", LVname)
     else:
-        vol = objPart.newObject("App::Part", LVname)
+        vol = parent.newObject("App::Part", LVname)
     if hasattr(vol, "Material"):
         print("Hide Material")
         vol.setEditorMode("Material", 2)
@@ -2758,17 +2774,38 @@ class Mesh2TessFeature:
             ),
         }
 
-def createGDMLmesh(parent, obj):
+
+def createGDMLmesh(obj, material, select=False, colour=None):
+    import Part
+    from .GDMLObjects import GDMLMesh, ViewProvider
     print(f"Create GDML Mesh from FC Mesh")
-    print(f"Parent {parent}  Object {obj}")
-    print(dir(obj.Mesh))
+    if hasattr(obj, "Mesh"):
+        name = "GDMLmesh"+obj.Label
+        # If obj is selected remove trailing underscore#   
+        if select : name = name[:-1]
+        vol = insertPartVol(obj.getParent(),"LV-"+name, name)
+        GDMLMesh(vol, obj.Mesh, "mm", material, colour)
+        ViewProvider(vol.ViewObject)
+
 
 class Mesh2GDMLmeshFeature:
+    from .GDMLObjects import GDMLMesh, ViewProvider
+
     def Activated(self):
+        material = getSelectedMaterial()
+        doc = FreeCAD.ActiveDocument
         for obj in FreeCADGui.Selection.getSelection():
             if obj.TypeId == "Mesh::Feature":
-                parent = obj.getParent()
-                createGDMLmesh(parent, obj)
+                #vol = createPartVol(obj, doc, selection=True)
+                #GDMLMesh(obj, obj.Mesh, "mm", material, colour)
+                #ViewProvider(obj.ViewObject)
+                createGDMLmesh(obj, material, select=True, colour=None)
+
+                #if hasattr(vol, "Material"):
+                #   print("Hide Material")
+                #   vol.setEditorMode("Material", 2)
+        FreeCAD.ActiveDocument.recompute()
+        FreeCADGui.SendMsgToActiveView("ViewFit")
 
     def IsActive(self):
         if FreeCAD.ActiveDocument is None:
