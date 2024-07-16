@@ -1968,7 +1968,8 @@ def buildAssemblyTree(worldVol):
             elif obj.TypeId == "App::Link":
                 processLink(obj, imprNum)
             else:
-                if SolidExporter.hasExporter(obj):
+                #if SolidExporter.hasExporter(obj):
+                if SolidExporter.isSolid(obj):
                     entry.addSolid(obj)
 
     processContainer(worldVol)
@@ -2374,7 +2375,8 @@ def processMultiPlacement(obj, xmlParent):
     children = [obj] + getChildren(obj)
     # export first solid in solids (booleans etc)
     for i, s in enumerate(children):
-        if SolidExporter.hasExporter(s):
+        #if SolidExporter.hasExporter(s):
+        if SolidExporter.isSolids):
             exporter = SolidExporter.getExporter(s)
             exporter.export()
             solidName = exporter.name()
@@ -3180,7 +3182,8 @@ class SolidExporter:
                     return True
                 elif typeId == "Clone":
                     clonedObj = obj1.Objects[0]
-                    return SolidExporter.hasExporter(clonedObj)
+                    #return SolidExporter.hasExporter(clonedObj)
+                    return SolidExporter.isSolid(clonedObj)
 
             else:
                 return obj1.Proxy.Type in SolidExporter.solidExporters
