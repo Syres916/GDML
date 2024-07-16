@@ -2376,7 +2376,7 @@ def processMultiPlacement(obj, xmlParent):
     # export first solid in solids (booleans etc)
     for i, s in enumerate(children):
         #if SolidExporter.hasExporter(s):
-        if SolidExporter.isSolids):
+        if SolidExporter.isSolid(s):
             exporter = SolidExporter.getExporter(s)
             exporter.export()
             solidName = exporter.name()
