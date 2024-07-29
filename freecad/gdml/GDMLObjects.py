@@ -404,10 +404,13 @@ def indexBoolean(list, ln):
 
 
 class GDMLsolid:
+
+    Version = 1         # Class Variable for Definitions
+
     def __init__(self, obj):
         """Init"""
         obj.Proxy = self
-        obj.Proxy.Version = 1
+        obj.Proxy.version = GDMLsolid.Version
         if hasattr(obj, "InList"):
             for j in obj.InList:
                 if hasattr(j, "OutList"):
@@ -423,11 +426,12 @@ class GDMLsolid:
 
     def onDocumentRestored(self, obj):
         if hasattr(obj, "Proxy"):
-            if hasattr(obj.Proxy, "Version"):
-                if obj.Proxy.Version == 1:
+            if hasattr(obj.Proxy, "version"):
+                if obj.Proxy.version == GDMLsolid.Version:
                     return
         if hasattr(obj, "ViewObject"):
-            obj.ViewObject.recompute()                         
+            print(f"Object {obj.Name} ViewProvider {obj.ViewObject}")
+            obj.ViewObject.update()                         
 
 
     def getMaterial(self):
