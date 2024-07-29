@@ -406,6 +406,8 @@ def indexBoolean(list, ln):
 class GDMLsolid:
     def __init__(self, obj):
         """Init"""
+        obj.Proxy = self
+        obj.Proxy.Version = 1
         if hasattr(obj, "InList"):
             for j in obj.InList:
                 if hasattr(j, "OutList"):
@@ -417,6 +419,16 @@ class GDMLsolid:
                         # print('Tool : '+obj.Label)
                         return  # Let Placement default to 0
         # obj.setEditorMode('Placement', 2)
+
+
+    def onDocumentRestored(self, obj):
+        if hasattr(obj, "Proxy"):
+            if hasattr(obj.Proxy, "Version"):
+                if obj.Proxy.Version == 1:
+                    return
+        if hasattr(obj, "ViewObject"):
+            obj.ViewObject.recompute()                         
+
 
     def getMaterial(self):
         return self.obj.material
@@ -2726,7 +2738,7 @@ class GDMLTwistedtubs(GDMLsolid):
             phi = getAngleRad(fp.aunit, fp.phi)
             phideg = getAngleDeg(fp.aunit, fp.phi)
             slices = []
-            N = 9  # number of slices
+            N = 20  # number of slices
             dz = zlen / (N - 1)
             dtwist = angle / (N - 1)
             # construct base wire
@@ -2759,7 +2771,8 @@ class GDMLTwistedtubs(GDMLsolid):
 
             for i in range(0, N):
                 p = w.translated(FreeCAD.Vector(0, 0, -zlen / 2 + i * dz))
-                p.rotate(vc, FreeCAD.Vector(0, 0, 1), angoffset + i * dtwist)
+                # p.rotate(vc, FreeCAD.Vector(0, 0, 1), angoffset + i * dtwist)
+                p.rotate(FreeCAD.Vector(0, 0, 0), FreeCAD.Vector(0, 0, 1), angoffset + i * dtwist)
                 slices.append(p)
 
             loft = Part.makeLoft(slices, True, False)
@@ -3107,7 +3120,7 @@ class GDMLPolycone(GDMLsolid):  # Thanks to Dam Lamb
             if i == 0:
                 rmin1 = zplanes[i].rmin * mul
                 rmax1 = zplanes[i].rmax * mul
-                z1 = zplanes[i].z * mul - offset
+                z1 = zplanes[i].z * mul
             else:
                 rmin1 = rmin2  # for i > 0, rmin2 will have been defined below
                 rmax1 = rmax2
@@ -3115,7 +3128,7 @@ class GDMLPolycone(GDMLsolid):  # Thanks to Dam Lamb
 
             rmin2 = zplanes[i + 1].rmin * mul
             rmax2 = zplanes[i + 1].rmax * mul
-            z2 = zplanes[i + 1].z * mul - offset
+            z2 = zplanes[i + 1].z * mul
 
             # def of one face to rotate
             face = Part.Face(
