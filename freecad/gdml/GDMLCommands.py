@@ -29,6 +29,8 @@ __title__ = "FreeCAD GDML Workbench - GUI Commands"
 __author__ = "Keith Sloan"
 __url__ = ["http://www.freecadweb.org"]
 
+import re
+
 """
 This Script includes the GUI Commands of the GDML module
 """
@@ -37,6 +39,8 @@ import os
 import FreeCAD, FreeCADGui
 import Part
 from PySide import QtGui, QtCore
+from PySide.QtCore import Qt
+
 from enum import Enum
 
 
@@ -145,16 +149,12 @@ def getParent(obj):
             return None
 
 
-def createPartVol(obj, doc=FreeCAD.ActiveDocument, selection=False):
+def createPartVol(obj):
     from .importGDML import addSurfList
-
-    if doc == None:
-        doc = FreeCAD.ActiveDocument
 
     # Create Part(GDML Vol) Shared with a number of Features
     LVname = "LV-" + obj.Label
-    # If from a selection drop trailing underscore
-    if selection is True : LVname = LVname[:-1]
+    doc = FreeCAD.ActiveDocument
     if hasattr(obj, "InList"):
         if len(obj.InList) > 0:
             parent = obj.InList[0]
@@ -581,15 +581,488 @@ class SetBorderSurfaceFeature:
         }
 
 
+class AddMaterial(QtGui.QDialog):
+
+    def __init__(self):
+        super(AddMaterial, self).__init__()
+        self.initUI()
+        self.exportGeant4Materials = False
+        self.cursorPosition = 0  # for log messages QTextEdit
+
+    def initUI(self):
+        print("initUI")
+        self.setGeometry(150, 150, 500, 600)
+        self.setWindowTitle("Add New Material")
+        self.setMouseTracking(True)  # not sure this is needed
+
+        nameLabel = QtGui.QLabel(translate("GDML", "Material Name: "))
+        self.materialName = QtGui.QLineEdit()
+        self.materialName.setFixedWidth(200)
+        self.materialName.setPlaceholderText(translate("GDML", "Type material name"))
+        densityLabel = QtGui.QLabel(translate("GDML", "Material density: "))
+        self.density = QtGui.QLineEdit()
+        self.density.setFixedWidth(200)
+        self.density.setPlaceholderText(translate("GDML", "Enter density and unit"))
+
+        formulaLabel = QtGui.QLabel(translate("GDML", "Formula/Mixture: "))
+        self.formulaEdit = QtGui.QLineEdit()
+        self.formulaEdit.setPlaceholderText(translate("GDML", "Enter formula or mixture"))
+        self.formulaEdit.setFixedWidth(400)
+
+        helpText = QtGui.QTextEdit()
+        helpText.setPlainText(translate("GDML",
+                                        "Define a material by\n" +
+                                        "1. A chemical formula, for example H2O or (CH3)2(C8H8)5\n" +
+                                        "2. A mixture of predefined materials, or elements e.g. \n" +
+                                        "       0.5 G4_DNA_A + 0.5 G4_DNA_B\n ") +
+                                        "    or 0.89 Cu + 0.09 Zn + 0.02 Pb \n" +
+                                        "3. A single Isotope, e.g. 13C\n"
+                                        "4. An element (a mixture of isotopes), e.g.\n" +
+                                        "       0.25 235U + 0.75 238U\n" +
+                                        "   In cases 3 and 4 material with that element will be created.")
+        helpText.setReadOnly(True)
+        helpText.setFixedWidth(400)
+        self.resultLog = QtGui.QTextEdit()
+        self.resultLog.setFixedWidth(400)
+        self.resultLog.setReadOnly(True)
+
+
+        self.buttonAdd = QtGui.QPushButton(translate("GDML", "Add"))
+        self.buttonAdd.clicked.connect(self.onAdd)
+
+        self.buttonClear = QtGui.QPushButton(translate("GDML", "Clear"))
+        self.buttonClear.clicked.connect(self.onClear)
+
+        self.buttonClose = QtGui.QPushButton(translate("GDML", "Done"))
+        self.buttonClose.clicked.connect(self.onClose)
+
+        mainLayout = QtGui.QGridLayout()
+
+        row = 0
+        mainLayout.addWidget(nameLabel, row, 0, alignment=Qt.AlignRight)
+        mainLayout.addWidget(self.materialName, row, 1, alignment=Qt.AlignLeft)
+
+        row += 1
+        mainLayout.addWidget(densityLabel, row, 0, alignment=Qt.AlignRight)
+        mainLayout.addWidget(self.density, row, 1, alignment=Qt.AlignLeft)
+
+        row += 1
+        mainLayout.addWidget(formulaLabel, row, 0, alignment=Qt.AlignRight)
+        mainLayout.addWidget(self.formulaEdit, row, 1, alignment=Qt.AlignLeft)
+
+        row += 1
+        mainLayout.addWidget(helpText, row, 1, 4, 2, alignment=Qt.AlignLeft)
+
+        row += 4
+
+        mainLayout.addWidget(self.resultLog, row, 1, 2, 2, alignment=Qt.AlignLeft)
+        row += 2
+
+        hbox = QtGui.QHBoxLayout()
+        hbox.addWidget(self.buttonAdd)
+        hbox.insertSpacing(1, 20)
+        hbox.addWidget(self.buttonClear)
+        hbox.insertSpacing(3, 20)
+        hbox.addWidget(self.buttonClose)
+
+        mainLayout.addItem(hbox, row, 0, 1, 2, Qt.AlignCenter)
+
+        self.setLayout(mainLayout)
+
+        self.show()
+
+    def onClear(self):
+        self.materialName.setText("")
+        self.density.setText("")
+        self.formulaEdit.setText("")
+
+    def inputType(self, inputStr: str) -> str:
+        import re
+        ''' Get type of formulat user entered: 4 possibilities:
+        1. formula: H2(SO4)2 -> "formula'
+        2. mixtures: 0.1 Water +0.3 Steel -> 'mixture'
+        3. Element: 0.9 235U + 0.1 238U
+        4. Single Isotope: 14C
+        5. None of the above -> 'error'
+        '''
+
+        # Regular expression to find elements and their counts
+        formulaPattern = r'^([A-Z][a-z]?)(\d*)|(\()|(\))(\d*)$'
+
+        qmat = r'(\d*\.?\d*(?:[Ee][+-]?\d{1,2})*)\s+([A-Za-z]\w*)'  # quantified material
+        mixture = r'^' + qmat + r'\s+[+]?\s+' + qmat + r'(?:' + r'\s+[+]?\s+' + qmat + r')*' + r'$'
+        self.mixturePattern = mixture
+
+        # capturing group of Isotope: 1-3 digits followed by Capital letter followed by 0 or one small letters
+        iso = r'(\d{1,3})([A-Z][a-z]?)'
+        self.isotopePattern = r'^' + iso + r'$'
+
+        qiso = r'(\d*\.?\d*(?:[Ee][+-]?\d{1,2})*)\s+' + iso
+        element = r'^' + qiso + r'(?:\s+[+]\s+' + qiso + r')*$'
+
+        self.elementPattern = element
+
+        if re.match(formulaPattern, inputStr):
+            return 'formula'
+        elif re.match(self.mixturePattern, inputStr):
+            return 'mixture'
+        elif re.match(self.elementPattern, inputStr):
+            return 'element'
+        elif re.match(self.isotopePattern, inputStr):
+            return 'isotope'
+        else:
+            return 'error'
+
+    def onAdd(self):
+        from .formula_parser import parse_chemical_formula
+
+        formula = self.formulaEdit.text().strip()
+        expressionType = self.inputType(formula)
+        self.logWarning(f"Expression type: {expressionType}")
+
+        if expressionType == 'formula':
+            self.processFormula(formula)
+        elif expressionType == 'mixture':
+            self.processMixture(formula)
+        elif expressionType == 'element':
+            self.processElement(formula)
+        elif expressionType == 'isotope':
+            formula = '1.0 ' + formula
+            self.processElement(formula)
+        elif expressionType == 'error':
+            self.logErr(f" illegal expression: {formula}")
+
+        if self.exportGeant4Materials:
+            params = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/GDML")
+            params.SetBool('exportG4Materials', True)
+
+        return
+
+    def processFormula(self, expr: str):
+        from .formula_parser import parse_chemical_formula
+        try:
+            result = parse_chemical_formula(expr)
+            self.logMsg(result)
+            self.addFormulaMaterial(result)
+        except Exception as e:
+            self.logErr(str(e))
+
+    def checkGDMLDoc(self) -> bool:
+        if not hasattr(FreeCAD.ActiveDocument, "Materials"):
+            self.logErr("No Materials Group found. Is this a GDML Document?")
+            return False
+
+        matGrp = FreeCAD.ActiveDocument.Materials
+        if not hasattr(matGrp, "Group"):
+            self.logErr("Materials is empty. Is this a GDML Document?")
+            return False
+
+        materialsGrp = matGrp.Group
+        Geant4grp = None
+        for grp in materialsGrp:
+            if grp.Label == "Geant4":
+                Geant4grp = grp
+                break
+
+        if Geant4grp is None:
+            self.logErr("Geant4 not in Materials Group. Is this a GDML Document?")
+            return False
+
+        return True
+
+    def processMixture(self, expr: str):
+        from .GDMLObjects import (
+            GDMLmaterial,
+            GDMLfraction,
+            GDMLcomposite,
+            MaterialsList,
+        )
+        from .importGDML import newGroupPython
+        from .formula_parser import recognized_elements
+
+        if not self.checkGDMLDoc():
+            return
+
+        match = re.match(self.mixturePattern, expr)
+        groups = match.groups()
+
+        mixtureDict = {}
+        i = 0  # 0 means the item is a fraction, 1 means the item is a Material name
+        for s in groups:
+            if s is None:
+                continue
+            if i == 0:
+                frac = float(s)
+                i = 1 - i
+                continue
+            if i == 1:
+                material = s
+                mixtureDict[material] = frac
+                i = 1 - i
+
+        # step 1: verify that all materials already exist
+        exportGeant4Materials = False
+        for mat in dict(mixtureDict):  # parse a copy, since we may need to change the material name
+            if len(FreeCAD.ActiveDocument.getObjectsByLabel(mat)) == 0:
+                # Maybe an element symbol is being used, check that
+                if mat in recognized_elements:
+                    mixtureDict[mat+"_element"] = mixtureDict[mat]
+                    del mixtureDict[mat]  # delete the entry in terms of just the element symbol
+                    exportGeant4Materials = True
+                else:
+                    self.logErr(f"material {mat} does not exist.\nPlease create it first.")
+                    return
+
+        materials = FreeCAD.ActiveDocument.Materials
+        matGrp = FreeCAD.ActiveDocument.Materials
+        matName = self.materialName.text().strip()
+
+        # Check if the material name already exists
+        if len(FreeCAD.ActiveDocument.getObjectsByLabel(matName)) > 0:
+            self.logErr(f"New material name {matName} already exists.")
+            self.logErr(f"FreeCAD will modify the name. You probably don't want that.")
+            self.logErr(f"Please delete the existing name, or choose a different one.")
+            return
+
+        MaterialsList.append(matName)
+        materialObj = newGroupPython(matGrp, matName)
+        GDMLmaterial(materialObj, matName)
+
+        self.setDensity(materialObj)
+
+        # nromalize fractions to unity
+        ftot = 0
+        for mat in mixtureDict:
+            f = float(mixtureDict[mat])
+            ftot += f
+
+        if ftot != 1.0:
+            self.logWarning(f"Sum of fractions ({ftot:.4f}) is not 1.0")
+            self.logWarning("Renormalizing to add to 1.0")
+
+        for mat in mixtureDict:
+            f = float(mixtureDict[mat]) / ftot
+            fractionObj = newGroupPython(materialObj, mat)
+            GDMLfraction(fractionObj, mat, f)
+            # problems with changing labels if more than one
+            fractionObj.Label = mat + " : " + "{0:0.3f}".format(f)
+
+        self.exportGeant4Materials |= exportGeant4Materials
+
+    def processElement(self, expr: str):
+        from .GDMLObjects import (
+            GDMLelement,
+            GDMLfraction,
+            GDMLmaterial,
+            MaterialsList)
+
+        from .importGDML import newGroupPython
+        from .formula_parser import recognized_elements
+
+        if not self.checkGDMLDoc():
+            return
+
+        match = re.match(self.elementPattern, expr)
+        groups = match.groups()
+
+        mixtureDict = {}
+        fTot = 0
+        i = 0  # 0 means the item is a fraction, 1 means the item is Isotope name
+        for s in groups:
+            if s is None:
+                continue
+            if i == 0:
+                frac = float(s)
+                i = 1
+                continue
+            if i == 1:
+                N = int(s)
+                i = 2
+                continue
+            if i == 2:
+                symbol = s
+                #  change Isotope to isotope name, e.q. 235U to U235
+                isotopeName = s + str(N)
+                mixtureDict[isotopeName] = frac
+                fTot += frac
+                i = 0
+
+        # step 1: verify that all Isotopes already exist
+        zSet = set()
+        missingIsotopes = []
+        for isotope in dict(mixtureDict):  # parse a copy, since we may need to change the material name
+            if len(FreeCAD.ActiveDocument.getObjectsByLabel(isotope)) == 0:
+                self.logWarning(f"Isotope {isotope} does not exist.\nWill read from NIST_Isotopes file.")
+                missingIsotopes.append(isotope)
+
+        if len(missingIsotopes) > 0:
+            self.readIsotopes(missingIsotopes)
+
+        # just check again that the requested isotopes have been read
+        for isotope in dict(mixtureDict):  # parse a copy, since we may need to change the material name
+            if len(FreeCAD.ActiveDocument.getObjectsByLabel(isotope)) == 0:
+                self.logErr(f"Isotope {isotope} does not exist.\nMaterial not added.")
+                return
+            # the name should not only exist, but it should be an isotope
+            obj = FreeCAD.ActiveDocument.getObjectsByLabel(isotope)[0]
+            if not (hasattr(obj, 'N') and hasattr(obj, 'Z')):
+                self.logErr(f"Isotope {isotope} does not exist.\nPlease check the name or create it.")
+                return
+            Z = obj.Z
+            zSet.add(Z)
+
+        # all isotopes must have the same Z
+        if len(zSet) > 1:
+            self.logErr(f"All isotopes must be of same element. Found {len(zSet)} different element")
+            return
+
+        elementsGrp = FreeCAD.ActiveDocument.Elements
+        elementName = self.materialName.text().strip()
+
+        # Check if the element name already exists
+        if len(FreeCAD.ActiveDocument.getObjectsByLabel(elementName)) > 0:
+            self.logErr(f"New element name {elementName} already exists.")
+            self.logErr(f"FreeCAD will modify the name. You probably don't want that.")
+            self.logErr(f"Please delete the existing name, or choose a different one.")
+            return
+
+        # if a density is given, then create a material from the element
+        # give the material name, the element name
+        # and make the element name materialName + '_element'
+        dstr = self.density.text()
+        if dstr != '':
+            matGrp = FreeCAD.ActiveDocument.Materials
+            matName = elementName
+            elementName = matName+'_element'
+            MaterialsList.append(matName)
+            materialObj = newGroupPython(matGrp, matName)
+            GDMLmaterial(materialObj, matName)
+            fractionObj = newGroupPython(materialObj, elementName)
+            GDMLfraction(fractionObj, elementName, 1)
+            # problems with changing labels if more than one
+            fractionObj.Label = elementName + " : " + "1"
+
+            self.setDensity(materialObj)
+            self.logWarning(f"\nAdded an element {elementName} to the list,")
+            self.logWarning(f"and created a material {matName} from the element")
+
+        elementObj = newGroupPython(elementsGrp, elementName)
+        GDMLelement(elementObj, elementName)
+        for isotope in mixtureDict:
+            frac = mixtureDict[isotope]/fTot
+            fracObj = newGroupPython(elementObj, isotope)
+            GDMLfraction(fracObj, isotope, frac)
+            fracObj.Label = isotope + " : " + "{0:0.3f}".format(frac)
+
+        self.exportGeant4Materials |= True
+
+    def onClose(self):
+        self.hide()
+
+    def logColor(self, color: QtGui.QColor, startPos: int, endPos: int) -> None:
+        cursor = self.resultLog.textCursor()
+        cursor.setPosition(startPos)
+        cursor.setPosition(endPos, QtGui.QTextCursor.KeepAnchor)
+        format = QtGui.QTextCharFormat()
+        format.setForeground(color)
+        cursor.mergeCharFormat(format)
+
+    def logErr(self, msg) -> None:
+        self.logMsg(msg, color=QtGui.QColor("red"))
+
+    def logWarning(self, msg) -> None:
+        self.logMsg(msg, color=QtGui.QColor("orange"))
+
+    def logMsg(self, msg, color=QtGui.QColor("green")) -> None:
+        #  current_text = self.resultLog.toPlainText()
+        # updated_text = current_text + "\n" + msg
+        # self.resultLog.setPlainText(updated_text)
+        self.resultLog.insertPlainText('\n')
+        self.resultLog.insertPlainText(msg)
+        p0 = self.cursorPosition
+        p1 = p0 + len(msg) + 1
+        self.logColor(color, p0, p1)
+        self.cursorPosition = p1
+
+    def setDensity(self, matObj):
+        # get density
+        dstr = self.density.text()
+        dstrwords = dstr.strip().split()
+        if len(dstrwords) < 2:
+            self.logWarning("Density unit not given.\n Will default to g/cm3")
+            dunit = 'g/cm3'
+        else:
+            dunit = dstrwords[1]
+            self.validateDensityUnits(dunit)
+        D = float(dstrwords[0])
+
+        matObj.addProperty("App::PropertyFloat", "Dvalue", "GDMLmaterial", "value").Dvalue = D
+        matObj.addProperty("App::PropertyString", "Dunit", "GDMLmaterial", "Dunit").Dunit = dunit
+
+    def validateDensityUnits(self, dstr: str) -> None:
+        massUnits = ["kg", "g", "mg"]
+        volumeUnits = ["mm3", "cm3", "m3"]
+        dstrWords = dstr.strip().split('/')
+        mass = dstrWords[0]
+        volume = dstrWords[1]
+        if mass not in massUnits:
+            self.logWarning(f"density mass not in accepted units: {str(massUnits)}")
+        if volume not in volumeUnits:
+            self.logWarning(f"density volume not in accepted units: {str(volumeUnits)}")
+
+    def addFormulaMaterial(self, compositionDict: dict[str, int]):
+        from .GDMLObjects import (
+            GDMLmaterial,
+            GDMLfraction,
+            GDMLcomposite,
+            MaterialsList,
+        )
+        from .importGDML import newGroupPython
+
+        if not self.checkGDMLDoc():
+            return
+
+        matGrp = FreeCAD.ActiveDocument.Materials
+        matName = self.materialName.text()
+
+        MaterialsList.append(matName)
+        materialObj = newGroupPython(matGrp, matName)
+        GDMLmaterial(materialObj, matName)
+        formula = self.formulaEdit.text()
+        materialObj.addProperty("App::PropertyString", "formula", matName).formula = formula
+
+        self.setDensity(materialObj)
+
+        for elem in compositionDict:
+            # use geant4 elements
+            ref = elem+"_element"
+            n = int(compositionDict[elem])
+            compObj = newGroupPython(materialObj, ref)
+            GDMLcomposite(compObj, "comp", n, ref)
+            compObj.Label = ref + " : " + str(n)
+
+    def readIsotopes(self, iotopeList):
+        from .importGDML import (
+            processIsotopes,
+            joinDir,
+            setupEtree)
+
+        doc = FreeCAD.ActiveDocument
+        filename = joinDir("Resources/NIST_Isotopes.xml")
+        etree, root = setupEtree(filename)
+        mats_xml = root.find("materials")
+        isotopesGrp = FreeCAD.ActiveDocument.Isotopes
+        processIsotopes(isotopesGrp, mats_xml, isotopelist=iotopeList)
+
 class GDMLSetMaterial(QtGui.QDialog):
     def __init__(self, selList):
         super(GDMLSetMaterial, self).__init__()
         self.SelList = selList
         self.initUI()
 
+
     def initUI(self):
         from .GDMLMaterials import GDMLMaterial, newGetGroupedMaterials
-        #from .GDMLObjects import LengthQuantityList, setLengthQuantity 
 
         print("initUI")
         self.setGeometry(150, 150, 250, 250)
@@ -630,12 +1103,10 @@ class GDMLSetMaterial(QtGui.QDialog):
         mainLayout.addWidget(self.buttonSet)
         self.setLayout(mainLayout)
         obj = self.SelList[0].Object
-        #if obj.TypeId == "Mesh::Feature":
-        #    if not hasattr(obj, "material"):
-        #        obj.addProperty(
-        #            "App::PropertyEnumeration", "material", "GDMLMesh", \
-        #                self.matList
-        #        )
+        if hasattr(obj, "material"):
+            mat = obj.material
+            self.lineedit.setText(mat)
+            self.setMaterial(mat)
         self.show()
 
     def setMaterial(self, text):
@@ -671,12 +1142,8 @@ class GDMLSetMaterial(QtGui.QDialog):
         self.lineedit.setText(text)
 
     def onSet(self):
-        from .GDMLObjects import LengthQuantityList, setLengthQuantity 
         # mat = self.materialComboBox.currentText()
         mat = self.lineedit.text()
-        print(f"mat {mat}")
-        if mat == "": mat=self.matList[0]
-        #print(f"MatList {self.matList}")
         if mat not in self.matList:
             print(f"Material {mat} not defined")
             return
@@ -701,11 +1168,6 @@ class GDMLSetMaterial(QtGui.QDialog):
                 obj.material = self.matList
                 obj.material = self.matList.index(mat)
 
-            if not hasattr(obj, "lunit"):
-                obj.addProperty(
-                    "App::PropertyEnumeration", "lunit", "GDMLMesh", "lunit"
-                    )
-                setLengthQuantity(obj, "mm")
 
 class GDMLScale(QtGui.QDialog):
     def __init__(self, selList):
@@ -937,12 +1399,12 @@ class SetMaterialFeature:
         print("Add SetMaterial")
         cnt = 0
         sel = FreeCADGui.Selection.getSelectionEx()
-        #print(sel)
+        # print(sel)
         set = []
         for s in sel:
             # print(s)
-            #print(dir(s))
-            if hasattr(s.Object, "Shape") or s.Object.TypeId == "Mesh::Feature":
+            # print(dir(s))
+            if hasattr(s.Object, "Shape"):
                 cnt += 1
                 set.append(s)
         if cnt > 0:
@@ -964,6 +1426,30 @@ class SetMaterialFeature:
             ),
             "ToolTip": QtCore.QT_TRANSLATE_NOOP(
                 "GDML_SetMaterial", "Set Material"
+            ),
+        }
+
+
+class AddMaterialFeature:
+    def Activated(self):
+        dialog = AddMaterial()
+        dialog.exec_()
+        return
+
+    def IsActive(self):
+        if FreeCAD.ActiveDocument is None:
+            return False
+        else:
+            return True
+
+    def GetResources(self):
+        return {
+            "Pixmap": "GDML_AddMaterial",
+            "MenuText": QtCore.QT_TRANSLATE_NOOP(
+                "GDML_AddMaterial", "Add Material"
+            ),
+            "ToolTip": QtCore.QT_TRANSLATE_NOOP(
+                "GDML_AddMaterial", "Add Material"
             ),
         }
 
@@ -2338,7 +2824,7 @@ class TessellateFeature:
                 print("Facets : " + str(mesh.CountFacets))
                 # print(mesh.Facets)
                 name = "GDMLTessellate_" + obj.Label
-                vol = createPartVol(obj, FreeCAD.ActiveDocument)
+                vol = createPartVol(obj)
                 print(obj.Label)
                 print(obj.Placement)
                 if hasattr(obj, "material"):
@@ -2541,10 +3027,9 @@ class TessellateGmshFeature:
 
 
 class Mesh2TessDialog(QtGui.QDialog):
-    def __init__(self, selList, doc=FreeCAD.ActiveDocument):
+    def __init__(self, selList):
         super(Mesh2TessDialog, self).__init__()
         self.selList = selList
-        self.doc = doc
         self.setupUi()
         self.initUI()
 
@@ -2634,31 +3119,30 @@ class Mesh2TessDialog(QtGui.QDialog):
             GDMLSampledTessellated,
         )
 
-        #import cProfile, pstats
+        import cProfile, pstats
 
         solidFlag = self.fullDisplayRadioButton.isChecked()
         sampledFraction = self.fractionSpinBox.value()
 
-        #profiler = cProfile.Profile()
-        #profiler.enable()
-        for i, obj in enumerate(self.selList):
+        profiler = cProfile.Profile()
+        profiler.enable()
+        for obj in self.selList:
             # if len(obj.InList) == 0: # allowed only for for top level objects
-            print(f"TypeId {obj.TypeId} Label {obj.Label}")
+            print(obj.TypeId)
             if hasattr(obj, "Mesh"):
                 # Mesh Object difficult to determine parent
-                print(f"Action Selected {i} {obj.Name} Mesh 2 Tessellate")
+                print("Action Mesh 2 Tessellate")
                 print("Points : " + str(obj.Mesh.CountPoints))
                 print("Facets : " + str(obj.Mesh.CountFacets))
                 # print(obj.Mesh.Topology[0])
                 # print(obj.Mesh.Topology[1])
-                vol = createPartVol(obj, self.doc, True)
+                vol = createPartVol(obj)
                 if hasattr(obj, "material"):
                     mat = obj.material
                 else:
                     mat = getSelectedMaterial()
-                name = "GDMLTessellated_"+obj.Label    
                 m2t = vol.newObject(
-                    "Part::FeaturePython", name[:-1] # selection drop trailing 
+                    "Part::FeaturePython", "GDMLTessellate_Mesh2Tess"
                 )
                 GDMLSampledTessellated(
                     m2t,
@@ -2676,9 +3160,9 @@ class Mesh2TessDialog(QtGui.QDialog):
 
                 FreeCAD.ActiveDocument.recompute()
                 FreeCADGui.SendMsgToActiveView("ViewFit")
-        # profiler.disable()
-        #stats = pstats.Stats(profiler).sort_stats("cumtime")
-        #stats.print_stats()
+        profiler.disable()
+        stats = pstats.Stats(profiler).sort_stats("cumtime")
+        stats.print_stats()
 
         self.accept()
 
@@ -3305,6 +3789,7 @@ FreeCADGui.addCommand("ExpandCommand", ExpandFeature())
 FreeCADGui.addCommand("ExpandMaxCommand", ExpandMaxFeature())
 FreeCADGui.addCommand("ResetWorldCommand", ResetWorldFeature())
 FreeCADGui.addCommand("ColourMapCommand", ColourMapFeature())
+FreeCADGui.addCommand("AddMaterialCommand", AddMaterialFeature())
 FreeCADGui.addCommand("SetMaterialCommand", SetMaterialFeature())
 FreeCADGui.addCommand("SetSensDetCommand", SetSensDetFeature())
 FreeCADGui.addCommand("SetSkinSurfaceCommand", SetSkinSurfaceFeature())
