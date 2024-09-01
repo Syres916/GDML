@@ -51,6 +51,20 @@
          </widget>
         </item>
         <item>
+         <widget class="QCheckBox" name="checkBox_3">
+          <property name="text">
+           <string>Symmetric : Export - Import</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QCheckBox" name="checkBox_4">
+          <property name="text">
+           <string>Expand Arrays on Export</string>
+          </property>
+         </widget>
+        </item>
+        <item>
          <widget class="Gui::PrefCheckBox" name="checkBox_2">
           <property name="text">
            <string>Export utilized Geant4 materials</string>
