@@ -3705,7 +3705,7 @@ class CompoundFeature:
                     matObj = ObjectsFem.makeMaterialSolid(doc, material)
                     mat = matObj.Material
                     mat["Name"] = material
-                    mat["Density"] = str(n.density) + " kg/m^3"
+                    mat["Density"] = str(n.density) + " kg/m3"
                     mat["ThermalConductivity"] = str(n.conduct) + " W/m/K"
                     mat["ThermalExpansionCoefficient"] = (
                         str(n.expand) + " m/m/K"
