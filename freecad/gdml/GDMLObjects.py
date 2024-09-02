@@ -4151,13 +4151,13 @@ class GDMLGmshTessellated(GDMLsolid):
     ):
         super().__init__(obj)
         obj.addProperty(
-            "App::PropertyInteger", "facets", "GDMLGmshTessellated", "Facets"
-        ).facets = len(facets)
-        obj.setEditorMode("facets", 1)
+            "App::PropertyInteger", "numFacets", "GDMLGmshTessellated", "Facets"
+        ).numFacets = len(facets)
+        obj.setEditorMode("numFacets", 1)
         obj.addProperty(
-            "App::PropertyInteger", "vertex", "GDMLGmshTessellated", "Vertex"
-        ).vertex = len(vertex)
-        obj.setEditorMode("vertex", 1)
+            "App::PropertyInteger", "numVertex", "GDMLGmshTessellated", "Vertex"
+        ).numVertex = len(vertex)
+        obj.setEditorMode("numVertex", 1)
         # Properties NOT the same GmshTessellate GmshMinTessellate
         #obj.addProperty(
         #    "App::PropertyFloat",
@@ -4192,19 +4192,19 @@ class GDMLGmshTessellated(GDMLsolid):
             updateColour(obj, colour, material)
         self.Type = "GDMLGmshTessellated"
         self.SourceObj = sourceObj
-        self.Vertex = vertex
-        self.Facets = facets
+        self.vertex = vertex
+        self.facets = facets
         self.Object = obj
         self.colour = colour
         obj.Proxy = self
         obj.Proxy.Type = "GDMLGmshTessellated"
 
     def updateParams(self, vertex, facets, flag):
-        self.Vertex = vertex
-        self.Facets = facets
-        self.facets = len(facets)
-        self.vertex = len(vertex)
-        print(f"Vertex : {self.vertex} Facets : {self.facets}")
+        self.vertex = vertex
+        self.facets = facets
+        self.numFacets = len(self.facets)
+        self.numVertex = len(self.vertex)
+        print(f"Vertex : {self.numVertex} Facets : {self.numFacets}")
 
     def onChanged(self, fp, prop):
         """Do something when a property has changed"""
@@ -4243,12 +4243,12 @@ class GDMLGmshTessellated(GDMLsolid):
 
         initialize()
         meshObj(fp.Proxy.SourceObj, 2, True, fp.Proxy.Object)
-        facets = getFacets()
-        vertex = getVertex()
-        fp.Proxy.Vertex = vertex
-        self.Object.vertex = len(vertex)
-        fp.Proxy.Facets = facets
-        self.Object.facets = len(facets)
+        self.facets = getFacets()
+        self.vertex = getVertex()
+        fp.Proxy.vertex = self.vertex
+        self.Object.numVertex = len(self.vertex)
+        fp.Proxy.facets = self.facets
+        self.Object.numFacets = len(self.facets)
         FreeCADGui.updateGui()
 
     # def execute(self, fp): in GDMLsolid
@@ -4257,21 +4257,21 @@ class GDMLGmshTessellated(GDMLsolid):
         currPlacement = fp.Placement
         mul = GDMLShared.getMult(fp)
         FCfaces = []
-        for f in self.Facets:
+        for f in self.facets:
             if len(f) == 3:
                 face = GDMLShared.triangle(
-                    mul * self.Vertex[f[0]],
-                    mul * self.Vertex[f[1]],
-                    mul * self.Vertex[f[2]]
+                    mul * self.vertex[f[0]],
+                    mul * self.vertex[f[1]],
+                    mul * self.vertex[f[2]]
                 )
                 if face is not None:
                     FCfaces.append(face)
             else:  # len should then be 4
                 quadFace = GDMLShared.quad(
-                    mul * self.Vertex[f[0]],
-                    mul * self.Vertex[f[1]],
-                    mul * self.Vertex[f[2]],
-                    mul * self.Vertex[f[3]]
+                    mul * self.vertex[f[0]],
+                    mul * self.vertex[f[1]],
+                    mul * self.vertex[f[2]],
+                    mul * self.vertex[f[3]]
                 )
                 if quadFace is not None:
                     FCfaces.append(quadFace)
@@ -4279,16 +4279,16 @@ class GDMLGmshTessellated(GDMLsolid):
                     print(f"Create Quad Failed {f[0]} {f[1]} {f[2]} {f[3]}")
                     print("Creating as two triangles")
                     face = GDMLShared.triangle(
-                        mul * self.Vertex[f[0]],
-                        mul * self.Vertex[f[1]],
-                        mul * self.Vertex[f[2]]
+                        mul * self.vertex[f[0]],
+                        mul * self.vertex[f[1]],
+                        mul * self.vertex[f[2]]
                     )
                     if face is not None:
                         FCfaces.append(face)
                     face = GDMLShared.triangle(
-                        mul * self.Vertex[f[0]],
-                        mul * self.Vertex[f[2]],
-                        mul * self.Vertex[f[3]]
+                        mul * self.vertex[f[0]],
+                        mul * self.vertex[f[2]],
+                        mul * self.vertex[f[3]]
                     )
                     if face is not None:
                         FCfaces.append(face)
