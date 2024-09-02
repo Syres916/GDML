@@ -149,23 +149,25 @@ def getParent(obj):
             return None
 
 
-def createPartVol(obj):
+def createPartVol(obj, LVname):
     from .importGDML import addSurfList
 
     # Create Part(GDML Vol) Shared with a number of Features
-    LVname = "LV-" + obj.Label
     doc = FreeCAD.ActiveDocument
-    if hasattr(obj, "InList"):
-        if len(obj.InList) > 0:
-            parent = obj.InList[0]
-            vol = parent.newObject("App::Part", LVname)
-        else:
-            vol = doc.addObject("App::Part", LVname)
-        if hasattr(vol, "Material"):
+    if obj is None:
+       vol = doc.addObject("App::Part", LVname)
+    else:
+       vol = obj.newObject("App::Part", LVname)
+       if hasattr(vol, "Material"):
             print("Hide Material")
-            vol.setEditorMode("Material", 2)
-        addSurfList(doc, vol)
-        return vol
+            vol.setEditorMode("Material", 2)    # Don't show FC Material
+       addSurfList(doc, vol)
+       # If Symmetric set Name & Label to Read Only
+       params = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/GDML")
+       if params.GetBool('Symmetric') == True:
+              #vol.setEditorMode('Name', 1)  # 1 is read only
+              vol.setEditorMode('Label', 1) # 1 is read only 
+       return vol
     return None
 
 
@@ -177,9 +179,12 @@ def insertPartVol(objPart, LVname, solidName):
         vol = doc.addObject("App::Part", LVname)
     else:
         vol = objPart.newObject("App::Part", LVname)
-    if hasattr(vol, "Material"):
         print("Hide Material")
         vol.setEditorMode("Material", 2)
+    params = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/GDML")
+    if params.GetBool('Symmetric') == True:
+       #vol.setEditorMode('Name', 1)  # 1 is read only
+       vol.setEditorMode('Label', 1) # 1 is read only if hasattr(vol, "Material"):
 
     obj = vol.newObject("Part::FeaturePython", solidName)
     addSurfList(doc, vol)
@@ -1606,11 +1611,7 @@ class BoxFeature:
         from .GDMLObjects import GDMLBox, ViewProvider
 
         objPart, material = getSelectedPM()
-        if objPart is None:
-            vol = FreeCAD.ActiveDocument.addObject("App::Part", "LV-Box")
-        else:
-            vol = objPart.newObject("App::Part", "LV-Box")
-        obj = vol.newObject("Part::FeaturePython", "GDMLBox_Box")
+        obj = insertPartVol(objPart, "LV-Box","GDMLBox")
         # print("GDMLBox Object - added")
         # obj, x, y, z, lunits, material
         GDMLBox(obj, 10.0, 10.0, 10.0, "mm", material)
@@ -2823,21 +2824,18 @@ class TessellateFeature:
                 # print(mesh.Points)
                 print("Facets : " + str(mesh.CountFacets))
                 # print(mesh.Facets)
-                name = "GDMLTessellate_" + obj.Label
-                vol = createPartVol(obj)
-                print(obj.Label)
-                print(obj.Placement)
+                myTess = insertPartVol(obj, "LV-"+obj.Label,"Tess"+obj.Label)
                 if hasattr(obj, "material"):
                     mat = obj.material
                 else:
                     mat = getSelectedMaterial()
-                myTess = vol.newObject("Part::FeaturePython", name)
+                #myTess = vol.newObject("Part::FeaturePython", name)
                 # GDMLTessellated(myTess,mesh.Topology[0],mesh.Topology[1], \
                 GDMLTessellated(
                     myTess, mesh.Topology[0], mesh.Facets, True, "mm", mat
                 )
                 # Update Part Placment with source Placement
-                vol.Placement = obj.Placement
+                myTess.Placement = obj.Placement
                 base = obj.Placement.Base
                 print(type(base))
                 myTess.Placement.Base = base.multiply(-1.0)
@@ -3136,7 +3134,7 @@ class Mesh2TessDialog(QtGui.QDialog):
                 print("Facets : " + str(obj.Mesh.CountFacets))
                 # print(obj.Mesh.Topology[0])
                 # print(obj.Mesh.Topology[1])
-                vol = createPartVol(obj)
+                vol = createPartVol(obj, "LVmesh"+obj.Label)
                 if hasattr(obj, "material"):
                     mat = obj.material
                 else:

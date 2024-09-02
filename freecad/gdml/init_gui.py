@@ -91,7 +91,7 @@ class GDML_Workbench(FreeCADGui.Workbench):
             return text
 
         # import GDMLCommands, GDMLResources
-        commands = [
+        symCommands = [
             "CycleCommand",
             "ColourMapCommand",
             "ExpandCommand",
@@ -111,15 +111,19 @@ class GDML_Workbench(FreeCADGui.Workbench):
             "TrapCommand",
             "TubeCommand",
             "CutTubeCommand",
+            "BooleanCutCommand",
+            "BooleanIntersectionCommand",
+            "BooleanUnionCommand",
+        ]
+
+
+        nonSymCommands = [
             "Sketcher_NewSketch",
             "Part_Extrude",
             "Part_Revolve",
             "Part_Mirror",
             "Draft_ArrayTools",
             "SetScaleCommand",
-            "BooleanCutCommand",
-            "BooleanIntersectionCommand",
-            "BooleanUnionCommand",
             "TessellateCommand",
             "TessellateGmshCommand",
             "TessGmshMinCommand",
@@ -134,7 +138,8 @@ class GDML_Workbench(FreeCADGui.Workbench):
             "AddCompound",
         ]
 
-        toolbarcommands = [
+
+        toolbarSymCommands = [
             "CycleCommand",
             "ColourMapCommand",
             "ExpandCommand",
@@ -146,7 +151,6 @@ class GDML_Workbench(FreeCADGui.Workbench):
             "SetSkinSurfaceCommand",
             "SetBorderSurfaceCommand",
             "Separator",
-            "Std_Part",
             "BoxCommand",
             "ConeCommand",
             "ElTubeCommand",
@@ -156,6 +160,13 @@ class GDML_Workbench(FreeCADGui.Workbench):
             "TrapCommand",
             "TubeCommand",
             "CutTubeCommand",
+            "Separator",
+            "BooleanCutCommand",
+            "BooleanIntersectionCommand",
+            "BooleanUnionCommand",
+        ]
+        toolbarNonSymCommands = [
+            "Std_Part",
             "Sketcher_NewSketch",
             "Part_Extrude",
             "Part_Revolve",
@@ -163,24 +174,30 @@ class GDML_Workbench(FreeCADGui.Workbench):
             "Draft_ArrayTools",
             "SetScaleCommand",
             "Separator",
-            "BooleanCutCommand",
-            "BooleanIntersectionCommand",
-            "BooleanUnionCommand",
-            "Separator",
             "TessellateCommand",
+            "TessellateGmshCommand",
+            "TessGmshMinCommand",
             "GmshGroupCommand",
             "DecimateCommand",
             "Mesh_FromPartShape",
             "Mesh_Evaluation",
             "Mesh2TessGroupCommand",
-            #"Tess2MeshCommand",
+            "Mesh2TessCommand",
+            "Tess2MeshCommand",
             "TetrahedronCommand",
             "AddCompound",
         ]
-
         # parttoolbarcommands = ['Part_Cut','Part_Fuse','Part_Common']
         # meshtoolbarcommands = ['Mesh_FromPartShape','Mesh_Evaluation']
 
+
+        params = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/GDML")
+        if params.GetBool('Symmetric') == True:
+            toolbarcommands = toolbarSymCommands
+            commands = symCommands
+        else:
+            toolbarcommands = toolbarSymCommands + toolbarNonSymCommands
+            commands = symCommands + nonSymCommands
         self.appendToolbar(
             QT_TRANSLATE_NOOP("Workbench", "GDMLTools"), toolbarcommands
         )

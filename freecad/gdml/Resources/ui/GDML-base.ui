@@ -38,7 +38,7 @@
       <item>
        <layout class="QVBoxLayout" name="verticalLayout_2">
         <item>
-         <widget class="Gui::PrefCheckBox" name="checkBox">
+         <widget class="Gui::PrefCheckBox" name="DebugChkBox">
           <property name="text">
            <string>Print debug information in the Console</string>
           </property>
@@ -51,21 +51,33 @@
          </widget>
         </item>
         <item>
-         <widget class="QCheckBox" name="checkBox_3">
+         <widget class="Gui::PrefCheckBox" name="SymmetricChkBox">
           <property name="text">
            <string>Symmetric : Export - Import</string>
           </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QCheckBox" name="checkBox_4">
-          <property name="text">
-           <string>Expand Arrays on Export</string>
+          <property name="prefEntry" stdset="0">
+           <cstring>Symmetric</cstring>
+          </property>
+          <property name="prefPath" stdset="0">
+           <cstring>Mod/GDML</cstring>
           </property>
          </widget>
         </item>
         <item>
-         <widget class="Gui::PrefCheckBox" name="checkBox_2">
+         <widget class="Gui::PrefCheckBox" name="ExpandArraysChkBox">
+          <property name="text">
+           <string>Expand Arrays on Export</string>
+          </property>
+          <property name="prefEntry" stdset="0">
+           <cstring>ExpandArrays</cstring>
+          </property>
+          <property name="prefPath" stdset="0">
+           <cstring>Mod/GDML</cstring>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="Gui::PrefCheckBox" name="ExportMaterialsChkBox">
           <property name="text">
            <string>Export utilized Geant4 materials</string>
           </property>

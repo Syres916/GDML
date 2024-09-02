@@ -417,7 +417,10 @@ class GDMLsolid:
                     if (ln - r) >= 2:
                         # print('Tool : '+obj.Label)
                         return  # Let Placement default to 0
-        # obj.setEditorMode('Placement', 2)
+        params = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/GDML")
+        if params.GetBool('Symmetric') == True:                
+              obj.setEditorMode('Placement', 3) # 3 is hiden and read only
+              obj.setEditorMode('Label', 1) # 1 is read only
 
     def getMaterial(self):
         return self.obj.material
