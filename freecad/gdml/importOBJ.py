@@ -450,12 +450,12 @@ def processOBJ(doc, filePath):
     print("Check Materials definitions exist")
     checkMaterialDefinitionsExist()
     print("import OBJ as FC meshes")
-    startTime = datetime.now()
     mapDialog = MapObjmat2GDMLmatDialog()
     #mapDialog.initMaterials()
     #mapDialog.exec_()
     #return
     # Preprocess file collecting Object and Material definitions
+    startTime = datetime.now()
     mapDialog.parseObjFile(filePath)
     #print(f"Obj Dict {objDict}")
     #print(f"Time for preprocess objects materials {preTime - startTime}")

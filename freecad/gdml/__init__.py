@@ -1,6 +1,7 @@
 import FreeCAD
 FreeCAD.addImportType("GDML (*.gdml)","freecad.gdml.importGDML")
 FreeCAD.addImportType("XML (*.xml)","freecad.gdml.importGDML")
+FreeCAD.addImportType("FLUKA (*.inp)","freecad.gdml.importFluka")
 FreeCAD.addImportType("OBJ -> GDMLMesh (*.obj)","freecad.gdml.importOBJ")
 FreeCAD.addExportType("GDML (*.gdml)","freecad.gdml.exportGDML")
 FreeCAD.addExportType("GDML (*.GDML)","freecad.gdml.exportGDML")
