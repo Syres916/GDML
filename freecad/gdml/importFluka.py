@@ -98,17 +98,18 @@ def processFluka(doc, filePath):
     # Geant4 Registry
     import FreeCADGui 
     from . import GDMLUtils
+    from .importGDML  import processGDML
 
     from datetime import datetime
     print("Check Materials definitions exist")
     #checkMaterialDefinitionsExist()
     startTime = datetime.now()
     tempFile = GDMLUtils.getTempFileName(filePath,".gdml")
-    print(f"Temp gdml file {tempFile}")
-    print(dir(tempFile))
+    #print(f"Temp gdml file {tempFileGen}")
 
-    reader = fluka.Reader("model.inp")
-    flukaregistry = reader.flukaregistry
+    #reader = fluka.Reader("model.inp")
+    reader = fluka.Reader(filePath)
+    flukaRegistry = reader.flukaregistry
     geant4Registry = fluka2Geant4(flukaRegistry)
     worldLogicalVolume = geant4Registry.getWorldVolume()
     worldLogicalVolume.clipSolid()
@@ -116,8 +117,11 @@ def processFluka(doc, filePath):
     writer = gdml.Writer()
     writer.addDetector(geant4Registry)
     # writer.write("model.gdml")
-    writer.write("tenpFile")
+    writer.write("/tmp/tempGDML.gdml")
+    writer.write(tempFile)
     FreeCADGui.setActiveDocument(doc)
+    processGDML(doc, False, tempFile, False, 1, 0)
+    # doc, open=False, filename, prompt Process, processType 1 = GDML
     FreeCAD.ActiveDocument.recompute()
     if FreeCAD.GuiUp:
         FreeCADGui.SendMsgToActiveView("ViewFit")

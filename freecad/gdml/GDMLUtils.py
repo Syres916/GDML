@@ -19,9 +19,10 @@ def getTempFileName(filePath, outputExt):
        else:
            newFN = newTempFileName()
            print(f"Temp dir{dir1} file name {next(newFN)} {outputExt}")
-           print(dir(newFN))
-           n = next(newFN) + outputExt
-           print(f"string {n}")
+           n = next(newFN)
            #outputfilename=os.path.join(dir1,'%s.%s' % next(newFN),outputExt)
-           outputfilename=os.path.join(dir1,'%s.%s' % n )
-       return outputfilenam
+           #outputfilename=os.path.join(dir1,'%s.%s' % n )
+           #outputfilename=os.path.join(dir1, n + outputExt)
+           outputfilename=os.path.join(dir1, next(newFN)  + outputExt)
+
+       return outputfilename
