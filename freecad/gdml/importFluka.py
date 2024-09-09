@@ -117,7 +117,7 @@ def processFluka(doc, filePath):
     writer = gdml.Writer()
     writer.addDetector(geant4Registry)
     # writer.write("model.gdml")
-    writer.write("/tmp/tempGDML.gdml")
+    #writer.write("/tmp/tempGDML.gdml")
     writer.write(tempFile)
     FreeCADGui.setActiveDocument(doc)
     processGDML(doc, False, tempFile, False, 1, 0)
