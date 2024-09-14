@@ -519,6 +519,8 @@ def createLVandPV(obj, name, solidName):
 def getVolumeName(obj):
     if obj.TypeId == "App::Part":
         return obj.Label
+    elif obj.TypeId == "App::Link":
+        return getVolumeName(obj.LinkedObject)    
     else:
         name = nameOfGDMLobject(obj)
         return "V-" + name
@@ -3074,7 +3076,7 @@ def export(exportList, filepath):
             from PySide import QtGui
 
             QtGui.QMessageBox.critical(
-                None, "Need to select a Part for export", "Press OK"
+                None, "Need to select a Part for export", "Need to select Part of GDML Volume to be exported \n\n Press OK to return"
             )
         # profiler.disable()
         # stats = pstats.Stats(profiler).sort_stats('cumtime')
